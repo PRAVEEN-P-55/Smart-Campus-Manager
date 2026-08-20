@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
+  Activity,
   Bell,
   BookOpen,
   BriefcaseBusiness,
@@ -14,6 +15,20 @@ import {
   Settings,
   Users,
 } from "lucide-react";
+import {
+  Area,
+  AreaChart,
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import {
   announcements,
   assignments,
@@ -29,6 +44,7 @@ import {
   departments,
   eventRegistrations,
   events,
+  monthlyAnalytics,
   notifications,
   placementApplications,
   placements,
@@ -47,6 +63,7 @@ type View =
   | "placements"
   | "announcements"
   | "users"
+  | "analytics"
   | "settings";
 
 const navItems: {
@@ -62,12 +79,14 @@ const navItems: {
   { id: "placements", label: "Placements", icon: BriefcaseBusiness, allowedRoles: ["student", "coordinator", "admin"] },
   { id: "announcements", label: "Announcements", icon: Megaphone, allowedRoles: ["student", "faculty", "coordinator", "admin"] },
   { id: "users", label: "Users", icon: Users, allowedRoles: ["admin"] },
+  { id: "analytics", label: "Analytics", icon: Activity, allowedRoles: ["faculty", "coordinator", "admin"] },
   { id: "settings", label: "Settings", icon: Settings, allowedRoles: ["student", "faculty", "coordinator", "admin"] },
 ];
 
 function App() {
   const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [activeView, setActiveView] = useState<View>("dashboard");
+  const [searchQuery, setSearchQuery] = useState("");
   const role = sessionUser?.role ?? "student";
   const currentUser = sessionUser ?? users.find((user) => user.role === role) ?? users[0];
   const availableNavItems = useMemo(
@@ -120,7 +139,12 @@ function App() {
             <label className="relative min-w-0 flex-1">
               <span className="sr-only">Global search</span>
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden="true" />
-              <input className="app-input pl-10" placeholder="Search students, events, assignments, placements" />
+              <input
+                className="app-input pl-10"
+                value={searchQuery}
+                onChange={(event) => setSearchQuery(event.target.value)}
+                placeholder="Search students, events, assignments, placements"
+              />
             </label>
             <label>
               <span className="sr-only">Switch role</span>
@@ -178,6 +202,7 @@ function App() {
               </div>
             </div>
 
+            {searchQuery.trim() ? <SearchResults query={searchQuery} user={currentUser} /> : null}
             <WorkspaceContent view={activeView} user={currentUser} />
           </section>
         </main>
@@ -211,6 +236,10 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
     return <UsersModule user={user} />;
   }
 
+  if (view === "analytics") {
+    return <AnalyticsModule user={user} />;
+  }
+
   if (view === "dashboard" && user.role === "student") {
     return <StudentDashboard user={user} />;
   }
@@ -228,6 +257,142 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
   }
 
   return <FoundationSummary />;
+}
+
+function AnalyticsModule({ user }: { user: User }) {
+  if (user.role === "student") {
+    return <div className="app-empty-state">Analytics are available to faculty, coordinators, and admins.</div>;
+  }
+
+  const departmentChartData = departments.map((department) => ({
+    name: department.code,
+    students: department.studentCount,
+  }));
+  const placementChartData = placements.map((placement) => ({
+    name: placement.companyName,
+    applications: placementApplications.filter((application) => application.placementId === placement.id).length,
+  }));
+  const eventChartData = events.map((event) => ({
+    name: event.title.split(" ").slice(0, 2).join(" "),
+    registrations: eventRegistrations.filter((registration) => registration.eventId === event.id).length,
+    seats: event.totalSeats - event.availableSeats,
+  }));
+  const pieColors = ["#2563eb", "#0f9f6e", "#c27803", "#64748b"];
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Avg attendance" value={`${monthlyAnalytics.at(-1)?.attendance ?? 0}%`} badge="Monthly" badgeClass="app-badge-info" />
+        <StatCard label="Completion" value={`${monthlyAnalytics.at(-1)?.assignmentCompletion ?? 0}%`} badge="Assignments" badgeClass="app-badge-success" />
+        <StatCard label="Participation" value={String(monthlyAnalytics.at(-1)?.eventParticipation ?? 0)} badge="Events" badgeClass="app-badge-warning" />
+        <StatCard label="Applications" value={String(monthlyAnalytics.at(-1)?.placementApplications ?? 0)} badge="Placements" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <ChartPanel title="Monthly campus trend">
+          <ResponsiveContainer width="100%" height={320}>
+            <AreaChart data={monthlyAnalytics}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#dbe3ef" />
+              <XAxis dataKey="month" stroke="#64748b" fontSize={12} />
+              <YAxis stroke="#64748b" fontSize={12} />
+              <Tooltip />
+              <Area type="monotone" dataKey="attendance" stroke="#2563eb" fill="#dbeafe" strokeWidth={3} />
+              <Area type="monotone" dataKey="assignmentCompletion" stroke="#0f9f6e" fill="#ecfdf5" strokeWidth={3} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+
+        <ChartPanel title="Department distribution">
+          <ResponsiveContainer width="100%" height={320}>
+            <PieChart>
+              <Pie data={departmentChartData} dataKey="students" nameKey="name" innerRadius={68} outerRadius={108} paddingAngle={3}>
+                {departmentChartData.map((entry, index) => (
+                  <Cell key={entry.name} fill={pieColors[index % pieColors.length]} />
+                ))}
+              </Pie>
+              <Tooltip />
+            </PieChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <ChartPanel title="Event participation">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={eventChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#dbe3ef" />
+              <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+              <YAxis stroke="#64748b" fontSize={12} />
+              <Tooltip />
+              <Bar dataKey="registrations" fill="#2563eb" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="seats" fill="#0f9f6e" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+
+        <ChartPanel title="Placement applications">
+          <ResponsiveContainer width="100%" height={300}>
+            <BarChart data={placementChartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#dbe3ef" />
+              <XAxis dataKey="name" stroke="#64748b" fontSize={12} />
+              <YAxis stroke="#64748b" fontSize={12} />
+              <Tooltip />
+              <Bar dataKey="applications" fill="#c27803" radius={[6, 6, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </ChartPanel>
+      </div>
+    </div>
+  );
+}
+
+function ChartPanel({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <section className="app-panel">
+      <div className="app-panel-header">
+        <h2 className="text-xl font-bold">{title}</h2>
+        <button className="app-button-ghost">Refresh</button>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function SearchResults({ query, user }: { query: string; user: User }) {
+  const normalizedQuery = query.trim().toLowerCase();
+  const results = [
+    ...(user.role === "admin"
+      ? users.map((item) => ({ type: "User", label: item.name, detail: item.email }))
+      : []),
+    ...assignments.map((item) => ({ type: "Assignment", label: item.title, detail: getCourseName(item.courseId) })),
+    ...events.map((item) => ({ type: "Event", label: item.title, detail: item.venue })),
+    ...placements.map((item) => ({ type: "Placement", label: item.companyName, detail: item.jobRole })),
+    ...announcements
+      .filter((item) => item.audience === "all" || item.audience === `${user.role}s`)
+      .map((item) => ({ type: "Announcement", label: item.title, detail: item.priority })),
+  ]
+    .filter((item) => `${item.label} ${item.detail} ${item.type}`.toLowerCase().includes(normalizedQuery))
+    .slice(0, 6);
+
+  return (
+    <div className="mb-6 rounded-app border border-brand-100 bg-brand-50 p-4">
+      <p className="text-sm font-bold text-brand-900">Search results</p>
+      <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-3">
+        {results.length ? (
+          results.map((result) => (
+            <div key={`${result.type}-${result.label}`} className="rounded-app bg-white p-3 text-sm shadow-sm">
+              <p className="font-bold text-ink">{result.label}</p>
+              <p className="mt-1 text-xs text-muted">
+                {result.type} - {result.detail}
+              </p>
+            </div>
+          ))
+        ) : (
+          <div className="app-empty-state md:col-span-2 xl:col-span-3">No matching role-visible records.</div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function UsersModule({ user }: { user: User }) {
