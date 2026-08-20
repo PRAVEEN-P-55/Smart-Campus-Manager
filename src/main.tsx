@@ -195,6 +195,10 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
     return <AssignmentModule user={user} />;
   }
 
+  if (view === "events") {
+    return <EventModule user={user} />;
+  }
+
   if (view === "dashboard" && user.role === "student") {
     return <StudentDashboard user={user} />;
   }
@@ -212,6 +216,168 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
   }
 
   return <FoundationSummary />;
+}
+
+function EventModule({ user }: { user: User }) {
+  const canManage = user.role === "coordinator" || user.role === "admin";
+  const managedEvents = canManage && user.role === "coordinator"
+    ? events.filter((event) => event.createdBy === user.id)
+    : events;
+  const studentRegistrations = eventRegistrations.filter((registration) => registration.studentId === user.id);
+  const registeredEventIds = new Set(studentRegistrations.map((registration) => registration.eventId));
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Events" value={String(managedEvents.length)} badge="Campus" badgeClass="app-badge-info" />
+        <StatCard label="Published" value={String(managedEvents.filter((event) => event.status === "published").length)} badge="Live" badgeClass="app-badge-success" />
+        <StatCard label="Registrations" value={String(eventRegistrations.length)} badge="Tickets" badgeClass="app-badge-warning" />
+        <StatCard label="Seats open" value={String(managedEvents.reduce((sum, event) => sum + event.availableSeats, 0))} badge="Capacity" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">{canManage ? "Manage events" : "Browse events"}</h2>
+              <p className="mt-1 text-sm text-muted">Capacity, venue, registration deadline, and event status.</p>
+            </div>
+            {canManage ? <button className="app-button-primary">Create event</button> : <button className="app-button-secondary">My tickets</button>}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Venue</th>
+                  <th>Date</th>
+                  <th>Seats</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {managedEvents.map((event) => {
+                  const isRegistered = registeredEventIds.has(event.id);
+                  return (
+                    <tr key={event.id}>
+                      <td>{event.title}</td>
+                      <td>{event.venue}</td>
+                      <td>{formatShortDate(event.eventStart)}</td>
+                      <td>
+                        {event.availableSeats}/{event.totalSeats}
+                      </td>
+                      <td>{event.status}</td>
+                      <td>{canManage ? "Edit" : isRegistered ? "Cancel" : "Register"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="app-panel">
+          {canManage ? <EventCreateForm /> : <StudentTicketPanel registrations={studentRegistrations} />}
+        </section>
+      </div>
+
+      {canManage ? (
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Event registrations</h2>
+              <p className="mt-1 text-sm text-muted">Registration status and ticket codes for managed events.</p>
+            </div>
+            <button className="app-button-secondary">Export CSV</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Event</th>
+                  <th>Ticket</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {eventRegistrations.map((registration) => (
+                  <tr key={registration.id}>
+                    <td>{getUserName(registration.studentId)}</td>
+                    <td>{getEventTitle(registration.eventId)}</td>
+                    <td>{registration.ticketCode}</td>
+                    <td>{registration.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function EventCreateForm() {
+  return (
+    <form>
+      <h2 className="text-xl font-bold">Create event</h2>
+      <p className="mt-1 text-sm text-muted">Demo form for event publishing and capacity setup.</p>
+      <div className="mt-5 space-y-4">
+        <label>
+          <span className="app-label">Title</span>
+          <input className="app-input" defaultValue="Campus innovation meetup" />
+        </label>
+        <label>
+          <span className="app-label">Venue</span>
+          <input className="app-input" defaultValue="Innovation Hall" />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label>
+            <span className="app-label">Event date</span>
+            <input className="app-input" type="date" defaultValue="2026-09-10" />
+          </label>
+          <label>
+            <span className="app-label">Seats</span>
+            <input className="app-input" type="number" defaultValue="100" />
+          </label>
+        </div>
+        <label>
+          <span className="app-label">Description</span>
+          <textarea className="app-input min-h-28 py-3" defaultValue="A student-focused event for campus project demos." />
+        </label>
+      </div>
+      <button className="app-button-primary mt-5 w-full" type="button">
+        Publish event
+      </button>
+    </form>
+  );
+}
+
+function StudentTicketPanel({ registrations }: { registrations: typeof eventRegistrations }) {
+  return (
+    <div>
+      <h2 className="text-xl font-bold">My event tickets</h2>
+      <p className="mt-1 text-sm text-muted">Registered events, cancellation state, and ticket codes.</p>
+      <div className="mt-5 space-y-3">
+        {registrations.length ? (
+          registrations.map((registration) => (
+            <div key={registration.id} className="rounded-app border border-line bg-slate-50 p-3">
+              <div className="flex items-start justify-between gap-3">
+                <p className="text-sm font-bold text-ink">{getEventTitle(registration.eventId)}</p>
+                <span className="app-badge app-badge-success">{registration.status}</span>
+              </div>
+              <p className="mt-2 text-sm text-muted">Ticket: {registration.ticketCode}</p>
+              <button className="app-button-secondary mt-4 w-full">Cancel registration</button>
+            </div>
+          ))
+        ) : (
+          <div className="app-empty-state">No event registrations yet.</div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function AssignmentModule({ user }: { user: User }) {
@@ -1251,6 +1417,10 @@ function getAssignmentTitle(assignmentId: string) {
 
 function getUserName(userId: string) {
   return users.find((user) => user.id === userId)?.name ?? "User";
+}
+
+function getEventTitle(eventId: string) {
+  return events.find((event) => event.id === eventId)?.title ?? "Event";
 }
 
 function getClubName(clubId: string) {
