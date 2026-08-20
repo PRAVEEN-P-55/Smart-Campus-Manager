@@ -14,7 +14,24 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import { campusSummary, demoCredentials, roles, type Role, type User, users } from "./data/campusData";
+import {
+  announcements,
+  assignments,
+  attendanceRecords,
+  attendanceSessions,
+  campusSummary,
+  courses,
+  demoCredentials,
+  eventRegistrations,
+  events,
+  notifications,
+  placementApplications,
+  placements,
+  roles,
+  type Role,
+  type User,
+  users,
+} from "./data/campusData";
 import "./styles.css";
 
 type View =
@@ -156,24 +173,214 @@ function App() {
               </div>
             </div>
 
-            <div className="app-card-grid">
-              {[
-                ["Students", campusSummary.studentCount.toLocaleString("en-IN"), "app-badge-info"],
-                ["Faculty", campusSummary.facultyCount.toLocaleString("en-IN"), "app-badge-success"],
-                ["Events", campusSummary.activeEvents.toLocaleString("en-IN"), "app-badge-warning"],
-                ["Alerts", campusSummary.unreadNotifications.toLocaleString("en-IN"), "app-badge-danger"]
-              ].map(([label, value, badgeClass]) => (
-                <article className="app-stat-card" key={label}>
-                  <span className={`app-badge ${badgeClass}`}>Foundation</span>
-                  <p className="mt-4 text-sm font-semibold text-muted">{label}</p>
-                  <p className="mt-1 text-3xl font-bold">{value}</p>
-                </article>
-              ))}
-            </div>
+            {currentUser.role === "student" && activeView === "dashboard" ? (
+              <StudentDashboard user={currentUser} />
+            ) : (
+              <FoundationSummary />
+            )}
           </section>
         </main>
       </div>
     </div>
+  );
+}
+
+function StudentDashboard({ user }: { user: User }) {
+  const studentAttendance = attendanceRecords.filter((record) => record.studentId === user.id);
+  const positiveAttendance = studentAttendance.filter((record) =>
+    ["present", "late", "excused"].includes(record.status)
+  ).length;
+  const attendanceRate = studentAttendance.length
+    ? Math.round((positiveAttendance / studentAttendance.length) * 100)
+    : 0;
+  const studentNotifications = notifications.filter((notification) => notification.userId === user.id);
+  const registeredEventIds = new Set(
+    eventRegistrations
+      .filter((registration) => registration.studentId === user.id && registration.status === "registered")
+      .map((registration) => registration.eventId)
+  );
+  const appliedPlacementIds = new Set(
+    placementApplications
+      .filter((application) => application.studentId === user.id)
+      .map((application) => application.placementId)
+  );
+  const openAssignments = assignments.filter((assignment) => assignment.status === "published");
+  const registeredEvents = events.filter((event) => registeredEventIds.has(event.id));
+  const openPlacements = placements.filter((placement) => placement.status === "open");
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Attendance" value={`${attendanceRate}%`} badge="Current term" badgeClass="app-badge-info" />
+        <StatCard label="Open assignments" value={String(openAssignments.length)} badge="Due soon" badgeClass="app-badge-warning" />
+        <StatCard label="Registered events" value={String(registeredEvents.length)} badge="Active" badgeClass="app-badge-success" />
+        <StatCard label="Unread alerts" value={String(studentNotifications.filter((item) => !item.read).length)} badge="Inbox" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.25fr_0.75fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Today priorities</h2>
+              <p className="mt-1 text-sm text-muted">The student can see what needs action first.</p>
+            </div>
+            <button className="app-button-secondary">View calendar</button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            {openAssignments.slice(0, 2).map((assignment) => (
+              <PriorityCard
+                key={assignment.id}
+                title={assignment.title}
+                detail={`${getCourseName(assignment.courseId)} - due ${formatShortDate(assignment.deadline)}`}
+                badge="Assignment"
+              />
+            ))}
+            {openPlacements.slice(0, 1).map((placement) => (
+              <PriorityCard
+                key={placement.id}
+                title={placement.companyName}
+                detail={`${placement.jobRole} - closes ${formatShortDate(placement.deadline)}`}
+                badge="Placement"
+              />
+            ))}
+          </div>
+        </section>
+
+        <section className="app-panel">
+          <h2 className="text-xl font-bold">Notifications</h2>
+          <div className="mt-4 space-y-3">
+            {studentNotifications.map((notification) => (
+              <div key={notification.id} className="rounded-app border border-line bg-slate-50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-bold text-ink">{notification.title}</p>
+                  <span className={`app-badge ${notification.read ? "app-badge-info" : "app-badge-danger"}`}>
+                    {notification.read ? "Read" : "New"}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm leading-6 text-muted">{notification.message}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <StudentListPanel
+          title="Attendance history"
+          rows={studentAttendance.map((record) => `${getSessionTitle(record.sessionId)} - ${record.status}`)}
+          emptyText="No attendance records yet."
+        />
+        <StudentListPanel
+          title="Registered events"
+          rows={registeredEvents.map((event) => `${event.title} - ${formatShortDate(event.eventStart)}`)}
+          emptyText="No event registrations yet."
+        />
+        <StudentListPanel
+          title="Placement tracking"
+          rows={openPlacements.map((placement) => {
+            const applied = appliedPlacementIds.has(placement.id) ? "Applied" : "Not applied";
+            return `${placement.companyName} - ${placement.jobRole} - ${applied}`;
+          })}
+          emptyText="No placement notices yet."
+        />
+      </div>
+
+      <section className="app-panel">
+        <div className="app-panel-header">
+          <h2 className="text-xl font-bold">Announcements</h2>
+          <button className="app-button-ghost">Mark all read</button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="app-table">
+            <thead>
+              <tr>
+                <th>Title</th>
+                <th>Audience</th>
+                <th>Priority</th>
+                <th>Published</th>
+              </tr>
+            </thead>
+            <tbody>
+              {announcements
+                .filter((announcement) => announcement.audience === "all" || announcement.audience === "students")
+                .map((announcement) => (
+                  <tr key={announcement.id}>
+                    <td>{announcement.title}</td>
+                    <td>{announcement.audience}</td>
+                    <td>{announcement.priority}</td>
+                    <td>{formatShortDate(announcement.publishedAt)}</td>
+                  </tr>
+                ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function FoundationSummary() {
+  return (
+    <div className="app-card-grid">
+      {[
+        ["Students", campusSummary.studentCount.toLocaleString("en-IN"), "app-badge-info"],
+        ["Faculty", campusSummary.facultyCount.toLocaleString("en-IN"), "app-badge-success"],
+        ["Events", campusSummary.activeEvents.toLocaleString("en-IN"), "app-badge-warning"],
+        ["Alerts", campusSummary.unreadNotifications.toLocaleString("en-IN"), "app-badge-danger"]
+      ].map(([label, value, badgeClass]) => (
+        <StatCard key={label} label={label} value={value} badge="Foundation" badgeClass={badgeClass} />
+      ))}
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  badge,
+  badgeClass,
+}: {
+  label: string;
+  value: string;
+  badge: string;
+  badgeClass: string;
+}) {
+  return (
+    <article className="app-stat-card">
+      <span className={`app-badge ${badgeClass}`}>{badge}</span>
+      <p className="mt-4 text-sm font-semibold text-muted">{label}</p>
+      <p className="mt-1 text-3xl font-bold">{value}</p>
+    </article>
+  );
+}
+
+function PriorityCard({ title, detail, badge }: { title: string; detail: string; badge: string }) {
+  return (
+    <article className="rounded-app border border-line bg-white p-4">
+      <span className="app-badge app-badge-info">{badge}</span>
+      <h3 className="mt-4 text-base font-bold">{title}</h3>
+      <p className="mt-2 text-sm leading-6 text-muted">{detail}</p>
+      <button className="app-button-primary mt-4 w-full">Open</button>
+    </article>
+  );
+}
+
+function StudentListPanel({ title, rows, emptyText }: { title: string; rows: string[]; emptyText: string }) {
+  return (
+    <section className="app-panel">
+      <h2 className="text-xl font-bold">{title}</h2>
+      <div className="mt-4 space-y-3">
+        {rows.length ? (
+          rows.map((row) => (
+            <div key={row} className="rounded-app border border-line bg-slate-50 p-3 text-sm leading-6 text-slate-700">
+              {row}
+            </div>
+          ))
+        ) : (
+          <div className="app-empty-state">{emptyText}</div>
+        )}
+      </div>
+    </section>
   );
 }
 
@@ -282,6 +489,22 @@ function NavButton({
 
 function getViewTitle(view: View) {
   return navItems.find((item) => item.id === view)?.label ?? "Dashboard";
+}
+
+function getCourseName(courseId: string) {
+  return courses.find((course) => course.id === courseId)?.name ?? "Course";
+}
+
+function getSessionTitle(sessionId: string) {
+  const session = attendanceSessions.find((item) => item.id === sessionId);
+  return session ? `${getCourseName(session.courseId)} ${session.title}` : "Attendance session";
+}
+
+function formatShortDate(value: string) {
+  return new Intl.DateTimeFormat("en-IN", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(value));
 }
 
 createRoot(document.getElementById("root")!).render(
