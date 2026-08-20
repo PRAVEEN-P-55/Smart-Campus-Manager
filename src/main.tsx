@@ -207,6 +207,10 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
     return <AnnouncementsModule user={user} />;
   }
 
+  if (view === "users") {
+    return <UsersModule user={user} />;
+  }
+
   if (view === "dashboard" && user.role === "student") {
     return <StudentDashboard user={user} />;
   }
@@ -224,6 +228,97 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
   }
 
   return <FoundationSummary />;
+}
+
+function UsersModule({ user }: { user: User }) {
+  if (user.role !== "admin") {
+    return (
+      <div className="app-empty-state">
+        This area is restricted to admins. Role-aware navigation hides it for other users.
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Total users" value={String(users.length)} badge="Accounts" badgeClass="app-badge-info" />
+        <StatCard label="Active" value={String(users.filter((item) => item.status === "active").length)} badge="Enabled" badgeClass="app-badge-success" />
+        <StatCard label="Pending" value={String(users.filter((item) => item.status === "pending").length)} badge="Review" badgeClass="app-badge-warning" />
+        <StatCard label="Suspended" value={String(users.filter((item) => item.status === "suspended").length)} badge="Blocked" badgeClass="app-badge-danger" />
+      </div>
+
+      <section className="app-panel">
+        <div className="app-panel-header">
+          <div>
+            <h2 className="text-xl font-bold">Admin user management</h2>
+            <p className="mt-1 text-sm text-muted">Manage accounts, roles, departments, and activation state.</p>
+          </div>
+          <button className="app-button-primary">Add user</button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="app-table">
+            <thead>
+              <tr>
+                <th>Name</th>
+                <th>Email</th>
+                <th>Department</th>
+                <th>Role</th>
+                <th>Status</th>
+                <th>Controls</th>
+              </tr>
+            </thead>
+            <tbody>
+              {users.map((account) => (
+                <tr key={account.id}>
+                  <td>{account.name}</td>
+                  <td>{account.email}</td>
+                  <td>{getDepartmentName(account.departmentId)}</td>
+                  <td>
+                    <select className="app-input min-w-36" defaultValue={account.role} aria-label={`Role for ${account.name}`}>
+                      {roles.map((role) => (
+                        <option key={role.id} value={role.id}>
+                          {role.label}
+                        </option>
+                      ))}
+                    </select>
+                  </td>
+                  <td>
+                    <select className="app-input min-w-36" defaultValue={account.status} aria-label={`Status for ${account.name}`}>
+                      <option value="active">Active</option>
+                      <option value="pending">Pending</option>
+                      <option value="suspended">Suspended</option>
+                    </select>
+                  </td>
+                  <td>
+                    <button className="app-button-secondary">Save</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="app-panel">
+        <div className="app-panel-header">
+          <div>
+            <h2 className="text-xl font-bold">Role permissions summary</h2>
+            <p className="mt-1 text-sm text-muted">MVP role boundaries enforced in navigation and module views.</p>
+          </div>
+          <button className="app-button-ghost">Audit changes</button>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {roles.map((role) => (
+            <article key={role.id} className="rounded-app border border-line bg-slate-50 p-4">
+              <p className="text-base font-bold">{role.label}</p>
+              <p className="mt-2 text-sm leading-6 text-muted">{role.description}</p>
+            </article>
+          ))}
+        </div>
+      </section>
+    </div>
+  );
 }
 
 function AnnouncementsModule({ user }: { user: User }) {
@@ -1748,6 +1843,10 @@ function getViewTitle(view: View) {
 
 function getCourseName(courseId: string) {
   return courses.find((course) => course.id === courseId)?.name ?? "Course";
+}
+
+function getDepartmentName(departmentId: string) {
+  return departments.find((department) => department.id === departmentId)?.name ?? "Department";
 }
 
 function getAssignmentTitle(assignmentId: string) {
