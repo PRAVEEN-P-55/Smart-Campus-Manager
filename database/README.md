@@ -8,4 +8,22 @@ Planned database stack:
 - SQLite for local development
 - PostgreSQL-compatible `DATABASE_URL` for production deployment
 
-The Prisma schema and seed script are added in the next phase.
+Runtime Prisma schema:
+
+```text
+../backend/prisma/schema.prisma
+```
+
+Local SQLite database path:
+
+```text
+database/dev.db
+```
+
+Use backend commands for migrations and seeding:
+
+```bash
+cd backend
+npm run prisma:migrate
+npm run seed
+```
