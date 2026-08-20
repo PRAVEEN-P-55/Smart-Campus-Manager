@@ -18,6 +18,7 @@ import {
   announcements,
   assignments,
   assignmentSubmissions,
+  activityLogs,
   attendanceRecords,
   attendanceSessions,
   campusSummary,
@@ -25,6 +26,7 @@ import {
   clubs,
   courses,
   demoCredentials,
+  departments,
   eventRegistrations,
   events,
   notifications,
@@ -182,12 +184,150 @@ function App() {
               <FacultyDashboard user={currentUser} />
             ) : currentUser.role === "coordinator" && activeView === "dashboard" ? (
               <CoordinatorDashboard user={currentUser} />
+            ) : currentUser.role === "admin" && activeView === "dashboard" ? (
+              <AdminDashboard />
             ) : (
               <FoundationSummary />
             )}
           </section>
         </main>
       </div>
+    </div>
+  );
+}
+
+function AdminDashboard() {
+  const activeUsers = users.filter((user) => user.status === "active");
+  const publishedEvents = events.filter((event) => event.status === "published");
+  const reviewedSubmissions = assignmentSubmissions.filter((submission) => submission.status === "reviewed");
+  const assignmentCompletion = assignments.length
+    ? Math.round((reviewedSubmissions.length / assignments.length) * 100)
+    : 0;
+  const positiveAttendance = attendanceRecords.filter((record) =>
+    ["present", "late", "excused"].includes(record.status)
+  ).length;
+  const averageAttendance = attendanceRecords.length
+    ? Math.round((positiveAttendance / attendanceRecords.length) * 100)
+    : 0;
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Students" value={String(campusSummary.studentCount)} badge="Campus" badgeClass="app-badge-info" />
+        <StatCard label="Faculty" value={String(campusSummary.facultyCount)} badge="Users" badgeClass="app-badge-success" />
+        <StatCard label="Departments" value={String(campusSummary.departmentCount)} badge="Academic" badgeClass="app-badge-warning" />
+        <StatCard label="Open placements" value={String(campusSummary.openPlacements)} badge="Career" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Campus operations</h2>
+              <p className="mt-1 text-sm text-muted">A consolidated view of users, academics, events, and placements.</p>
+            </div>
+            <button className="app-button-primary">Generate report</button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-3">
+            <AdminMetric label="Active users" value={String(activeUsers.length)} detail="Seeded accounts" />
+            <AdminMetric label="Average attendance" value={`${averageAttendance}%`} detail="Across marked records" />
+            <AdminMetric label="Assignment completion" value={`${assignmentCompletion}%`} detail="Reviewed submissions" />
+            <AdminMetric label="Published events" value={String(publishedEvents.length)} detail="Accepting registrations" />
+            <AdminMetric label="Placement applications" value={String(placementApplications.length)} detail="Student applications" />
+            <AdminMetric label="Announcements" value={String(announcements.length)} detail="Published notices" />
+          </div>
+        </section>
+
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Audit log preview</h2>
+              <p className="mt-1 text-sm text-muted">Sensitive actions for admin review.</p>
+            </div>
+            <button className="app-button-secondary">View all</button>
+          </div>
+          <div className="space-y-3">
+            {activityLogs.map((log) => (
+              <div key={log.id} className="rounded-app border border-line bg-slate-50 p-3">
+                <p className="text-sm font-bold text-ink">{log.action.replaceAll("_", " ")}</p>
+                <p className="mt-2 text-sm text-muted">
+                  {getUserName(log.actorId)} updated {log.entityType} on {formatShortDate(log.createdAt)}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-2">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <h2 className="text-xl font-bold">Department stats</h2>
+            <button className="app-button-ghost">Manage departments</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Department</th>
+                  <th>Code</th>
+                  <th>Students</th>
+                  <th>Head</th>
+                </tr>
+              </thead>
+              <tbody>
+                {departments.map((department) => (
+                  <tr key={department.id}>
+                    <td>{department.name}</td>
+                    <td>{department.code}</td>
+                    <td>{department.studentCount}</td>
+                    <td>{getUserName(department.headFacultyId)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <h2 className="text-xl font-bold">User role overview</h2>
+            <button className="app-button-ghost">Manage users</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Role</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {users.map((user) => (
+                  <tr key={user.id}>
+                    <td>{user.name}</td>
+                    <td>{user.email}</td>
+                    <td>{user.role}</td>
+                    <td>{user.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    </div>
+  );
+}
+
+function AdminMetric({ label, value, detail }: { label: string; value: string; detail: string }) {
+  return (
+    <div className="rounded-app border border-line bg-white p-4">
+      <p className="text-sm font-semibold text-muted">{label}</p>
+      <p className="mt-2 text-2xl font-bold text-ink">{value}</p>
+      <p className="mt-1 text-xs text-muted">{detail}</p>
     </div>
   );
 }
