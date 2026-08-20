@@ -191,6 +191,10 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
     return <AttendanceModule user={user} />;
   }
 
+  if (view === "assignments") {
+    return <AssignmentModule user={user} />;
+  }
+
   if (view === "dashboard" && user.role === "student") {
     return <StudentDashboard user={user} />;
   }
@@ -208,6 +212,195 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
   }
 
   return <FoundationSummary />;
+}
+
+function AssignmentModule({ user }: { user: User }) {
+  const visibleAssignments =
+    user.role === "faculty"
+      ? assignments.filter((assignment) => assignment.facultyId === user.id)
+      : assignments.filter((assignment) => assignment.status !== "draft" || user.role === "admin");
+  const studentSubmissions = assignmentSubmissions.filter((submission) => submission.studentId === user.id);
+  const canManage = user.role === "faculty" || user.role === "admin";
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Assignments" value={String(visibleAssignments.length)} badge="Visible" badgeClass="app-badge-info" />
+        <StatCard label="Published" value={String(visibleAssignments.filter((item) => item.status === "published").length)} badge="Open" badgeClass="app-badge-success" />
+        <StatCard label="Submissions" value={String(assignmentSubmissions.length)} badge="Total" badgeClass="app-badge-warning" />
+        <StatCard label="Pending review" value={String(assignmentSubmissions.filter((item) => item.status === "submitted").length)} badge="Faculty" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.2fr_0.8fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">{user.role === "student" ? "Assigned work" : "Assignment listing"}</h2>
+              <p className="mt-1 text-sm text-muted">Deadlines, marks, course mapping, and publication status.</p>
+            </div>
+            {canManage ? <button className="app-button-primary">Create assignment</button> : <button className="app-button-primary">Submit work</button>}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Course</th>
+                  <th>Deadline</th>
+                  <th>Marks</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleAssignments.map((assignment) => (
+                  <tr key={assignment.id}>
+                    <td>{assignment.title}</td>
+                    <td>{getCourseName(assignment.courseId)}</td>
+                    <td>{formatShortDate(assignment.deadline)}</td>
+                    <td>{assignment.maxMarks}</td>
+                    <td>{assignment.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="app-panel">
+          {canManage ? (
+            <AssignmentCreateForm />
+          ) : (
+            <StudentSubmissionPanel submissions={studentSubmissions} />
+          )}
+        </section>
+      </div>
+
+      {canManage ? (
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Submission review</h2>
+              <p className="mt-1 text-sm text-muted">Faculty can inspect submissions, marks, and feedback state.</p>
+            </div>
+            <button className="app-button-secondary">Save feedback</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Assignment</th>
+                  <th>Type</th>
+                  <th>Late</th>
+                  <th>Marks</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {assignmentSubmissions.map((submission) => (
+                  <tr key={submission.id}>
+                    <td>{getUserName(submission.studentId)}</td>
+                    <td>{getAssignmentTitle(submission.assignmentId)}</td>
+                    <td>{submission.submissionType.replace("_", " ")}</td>
+                    <td>{submission.late ? "Yes" : "No"}</td>
+                    <td>{submission.marks ?? "Pending"}</td>
+                    <td>{submission.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function AssignmentCreateForm() {
+  return (
+    <form>
+      <h2 className="text-xl font-bold">Create assignment</h2>
+      <p className="mt-1 text-sm text-muted">Demo form for title, course, deadline, rubric, and marks.</p>
+      <div className="mt-5 space-y-4">
+        <label>
+          <span className="app-label">Title</span>
+          <input className="app-input" defaultValue="Mini project checkpoint" />
+        </label>
+        <label>
+          <span className="app-label">Course</span>
+          <select className="app-input" defaultValue={courses[0]?.id}>
+            {courses.map((course) => (
+              <option key={course.id} value={course.id}>
+                {course.name}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label>
+            <span className="app-label">Deadline</span>
+            <input className="app-input" type="date" defaultValue="2026-08-30" />
+          </label>
+          <label>
+            <span className="app-label">Max marks</span>
+            <input className="app-input" type="number" defaultValue="50" />
+          </label>
+        </div>
+        <label>
+          <span className="app-label">Rubric</span>
+          <textarea className="app-input min-h-28 py-3" defaultValue="Correctness, UX quality, code organization, and demo readiness." />
+        </label>
+      </div>
+      <button className="app-button-primary mt-5 w-full" type="button">
+        Publish assignment
+      </button>
+    </form>
+  );
+}
+
+function StudentSubmissionPanel({ submissions }: { submissions: typeof assignmentSubmissions }) {
+  return (
+    <div>
+      <h2 className="text-xl font-bold">Submit assignment</h2>
+      <p className="mt-1 text-sm text-muted">Demo submission accepts PDF, ZIP, or GitHub links.</p>
+      <div className="mt-5 space-y-4">
+        <label>
+          <span className="app-label">Assignment</span>
+          <select className="app-input" defaultValue={assignments[0]?.id}>
+            {assignments
+              .filter((assignment) => assignment.status === "published")
+              .map((assignment) => (
+                <option key={assignment.id} value={assignment.id}>
+                  {assignment.title}
+                </option>
+              ))}
+          </select>
+        </label>
+        <label>
+          <span className="app-label">GitHub or file URL</span>
+          <input className="app-input" defaultValue="https://github.com/student/campus-assignment" />
+        </label>
+        <button className="app-button-primary w-full" type="button">
+          Submit work
+        </button>
+      </div>
+      <div className="mt-6 space-y-3">
+        <h3 className="font-bold">Submission history</h3>
+        {submissions.length ? (
+          submissions.map((submission) => (
+            <div key={submission.id} className="rounded-app border border-line bg-slate-50 p-3 text-sm">
+              <p className="font-bold text-ink">{getAssignmentTitle(submission.assignmentId)}</p>
+              <p className="mt-1 text-muted">
+                {submission.status} - marks {submission.marks ?? "pending"}
+              </p>
+            </div>
+          ))
+        ) : (
+          <div className="app-empty-state">No submissions yet.</div>
+        )}
+      </div>
+    </div>
+  );
 }
 
 function AttendanceModule({ user }: { user: User }) {
