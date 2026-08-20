@@ -1,5 +1,6 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
+import { campusSummary } from "./data/campusData";
 import "./styles.css";
 
 function App() {
@@ -23,10 +24,10 @@ function App() {
 
         <div className="app-card-grid">
           {[
-            ["Students", "1,284", "app-badge-info"],
-            ["Faculty", "86", "app-badge-success"],
-            ["Events", "14", "app-badge-warning"],
-            ["Alerts", "3", "app-badge-danger"]
+            ["Students", campusSummary.studentCount.toLocaleString("en-IN"), "app-badge-info"],
+            ["Faculty", campusSummary.facultyCount.toLocaleString("en-IN"), "app-badge-success"],
+            ["Events", campusSummary.activeEvents.toLocaleString("en-IN"), "app-badge-warning"],
+            ["Alerts", campusSummary.unreadNotifications.toLocaleString("en-IN"), "app-badge-danger"]
           ].map(([label, value, badgeClass]) => (
             <article className="app-stat-card" key={label}>
               <span className={`app-badge ${badgeClass}`}>Foundation</span>
