@@ -114,6 +114,22 @@ export type PlacementApplication = {
   appliedAt: string;
 };
 
+export type Club = {
+  id: string;
+  coordinatorId: string;
+  name: string;
+  category: string;
+  status: "active" | "inactive";
+};
+
+export type ClubMembership = {
+  id: string;
+  clubId: string;
+  studentId: string;
+  membershipRole: "member" | "lead" | "volunteer";
+  status: "pending" | "approved" | "rejected" | "removed";
+};
+
 export type Announcement = {
   id: string;
   createdBy: string;
@@ -358,6 +374,18 @@ export const placementApplications: PlacementApplication[] = [
   { id: "pla-002", placementId: "plc-zoho", studentId: "usr-student-2", status: "shortlisted", appliedAt: "2026-08-19T12:40:00.000Z" },
 ];
 
+export const clubs: Club[] = [
+  { id: "club-code", coordinatorId: "usr-coordinator-1", name: "Code Studio", category: "Technical", status: "active" },
+  { id: "club-robotics", coordinatorId: "usr-coordinator-1", name: "Robotics Club", category: "Technical", status: "active" },
+  { id: "club-design", coordinatorId: "usr-coordinator-1", name: "Design Circle", category: "Creative", status: "active" },
+];
+
+export const clubMemberships: ClubMembership[] = [
+  { id: "cm-001", clubId: "club-code", studentId: "usr-student-1", membershipRole: "lead", status: "approved" },
+  { id: "cm-002", clubId: "club-robotics", studentId: "usr-student-2", membershipRole: "member", status: "pending" },
+  { id: "cm-003", clubId: "club-design", studentId: "usr-student-1", membershipRole: "volunteer", status: "approved" },
+];
+
 export const announcements: Announcement[] = [
   {
     id: "ann-review",
@@ -439,5 +467,6 @@ export const campusSummary = {
   departmentCount: departments.length,
   activeEvents: events.filter((event) => event.status === "published").length,
   openPlacements: placements.filter((placement) => placement.status === "open").length,
+  activeClubs: clubs.filter((club) => club.status === "active").length,
   unreadNotifications: notifications.filter((notification) => !notification.read).length,
 };

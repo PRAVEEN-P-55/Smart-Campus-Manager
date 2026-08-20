@@ -21,6 +21,8 @@ import {
   attendanceRecords,
   attendanceSessions,
   campusSummary,
+  clubMemberships,
+  clubs,
   courses,
   demoCredentials,
   eventRegistrations,
@@ -178,11 +180,116 @@ function App() {
               <StudentDashboard user={currentUser} />
             ) : currentUser.role === "faculty" && activeView === "dashboard" ? (
               <FacultyDashboard user={currentUser} />
+            ) : currentUser.role === "coordinator" && activeView === "dashboard" ? (
+              <CoordinatorDashboard user={currentUser} />
             ) : (
               <FoundationSummary />
             )}
           </section>
         </main>
+      </div>
+    </div>
+  );
+}
+
+function CoordinatorDashboard({ user }: { user: User }) {
+  const coordinatorEvents = events.filter((event) => event.createdBy === user.id);
+  const coordinatorPlacements = placements.filter((placement) => placement.createdBy === user.id);
+  const coordinatorClubs = clubs.filter((club) => club.coordinatorId === user.id);
+  const coordinatorAnnouncements = announcements.filter((announcement) => announcement.createdBy === user.id);
+  const registrationCount = eventRegistrations.filter((registration) =>
+    coordinatorEvents.some((event) => event.id === registration.eventId)
+  ).length;
+  const pendingClubRequests = clubMemberships.filter((membership) => membership.status === "pending");
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Managed events" value={String(coordinatorEvents.length)} badge="Events" badgeClass="app-badge-info" />
+        <StatCard label="Registrations" value={String(registrationCount)} badge="Tickets" badgeClass="app-badge-success" />
+        <StatCard label="Open placements" value={String(coordinatorPlacements.filter((placement) => placement.status === "open").length)} badge="Hiring" badgeClass="app-badge-warning" />
+        <StatCard label="Club requests" value={String(pendingClubRequests.length)} badge="Approvals" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Event coordination</h2>
+              <p className="mt-1 text-sm text-muted">Capacity, venue, and status for managed campus events.</p>
+            </div>
+            <button className="app-button-primary">Create event</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Event</th>
+                  <th>Venue</th>
+                  <th>Date</th>
+                  <th>Seats</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {coordinatorEvents.map((event) => (
+                  <tr key={event.id}>
+                    <td>{event.title}</td>
+                    <td>{event.venue}</td>
+                    <td>{formatShortDate(event.eventStart)}</td>
+                    <td>
+                      {event.totalSeats - event.availableSeats}/{event.totalSeats}
+                    </td>
+                    <td>{event.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Club approvals</h2>
+              <p className="mt-1 text-sm text-muted">Pending and active club participation requests.</p>
+            </div>
+            <button className="app-button-secondary">Review</button>
+          </div>
+          <div className="space-y-3">
+            {clubMemberships.map((membership) => (
+              <div key={membership.id} className="rounded-app border border-line bg-slate-50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-bold text-ink">{getClubName(membership.clubId)}</p>
+                  <span className={`app-badge ${membership.status === "pending" ? "app-badge-warning" : "app-badge-success"}`}>
+                    {membership.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-muted">
+                  {getUserName(membership.studentId)} - {membership.membershipRole}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        <StudentListPanel
+          title="Managed clubs"
+          rows={coordinatorClubs.map((club) => `${club.name} - ${club.category} - ${club.status}`)}
+          emptyText="No clubs assigned."
+        />
+        <StudentListPanel
+          title="Placement notices"
+          rows={coordinatorPlacements.map((placement) => `${placement.companyName} - ${placement.jobRole} - ${placement.status}`)}
+          emptyText="No placement notices."
+        />
+        <StudentListPanel
+          title="Announcements"
+          rows={coordinatorAnnouncements.map((announcement) => `${announcement.title} - ${announcement.priority}`)}
+          emptyText="No announcements created."
+        />
       </div>
     </div>
   );
@@ -650,6 +757,10 @@ function getAssignmentTitle(assignmentId: string) {
 
 function getUserName(userId: string) {
   return users.find((user) => user.id === userId)?.name ?? "User";
+}
+
+function getClubName(clubId: string) {
+  return clubs.find((club) => club.id === clubId)?.name ?? "Club";
 }
 
 function getSessionTitle(sessionId: string) {
