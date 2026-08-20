@@ -199,6 +199,10 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
     return <EventModule user={user} />;
   }
 
+  if (view === "placements") {
+    return <PlacementModule user={user} />;
+  }
+
   if (view === "dashboard" && user.role === "student") {
     return <StudentDashboard user={user} />;
   }
@@ -216,6 +220,171 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
   }
 
   return <FoundationSummary />;
+}
+
+function PlacementModule({ user }: { user: User }) {
+  const canManage = user.role === "coordinator" || user.role === "admin";
+  const visiblePlacements = canManage && user.role === "coordinator"
+    ? placements.filter((placement) => placement.createdBy === user.id)
+    : placements;
+  const studentApplications = placementApplications.filter((application) => application.studentId === user.id);
+  const appliedPlacementIds = new Set(studentApplications.map((application) => application.placementId));
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Placement notices" value={String(visiblePlacements.length)} badge="Notices" badgeClass="app-badge-info" />
+        <StatCard label="Open roles" value={String(visiblePlacements.filter((placement) => placement.status === "open").length)} badge="Hiring" badgeClass="app-badge-success" />
+        <StatCard label="Applications" value={String(placementApplications.length)} badge="Students" badgeClass="app-badge-warning" />
+        <StatCard label="Shortlisted" value={String(placementApplications.filter((application) => application.status === "shortlisted").length)} badge="Review" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">{canManage ? "Manage placement notices" : "Open placement notices"}</h2>
+              <p className="mt-1 text-sm text-muted">Eligibility, CTC, deadline, and application state.</p>
+            </div>
+            {canManage ? <button className="app-button-primary">Create notice</button> : <button className="app-button-secondary">My applications</button>}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Role</th>
+                  <th>CTC</th>
+                  <th>Deadline</th>
+                  <th>Status</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visiblePlacements.map((placement) => (
+                  <tr key={placement.id}>
+                    <td>{placement.companyName}</td>
+                    <td>{placement.jobRole}</td>
+                    <td>{placement.ctc}</td>
+                    <td>{formatShortDate(placement.deadline)}</td>
+                    <td>{placement.status}</td>
+                    <td>{canManage ? "Manage" : appliedPlacementIds.has(placement.id) ? "Applied" : "Apply"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="app-panel">
+          {canManage ? <PlacementCreateForm /> : <StudentApplicationPanel applications={studentApplications} />}
+        </section>
+      </div>
+
+      {canManage ? (
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Placement applications</h2>
+              <p className="mt-1 text-sm text-muted">Coordinator/admin status controls for applications.</p>
+            </div>
+            <button className="app-button-secondary">Export list</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Company</th>
+                  <th>Role</th>
+                  <th>Applied</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {placementApplications.map((application) => {
+                  const placement = placements.find((item) => item.id === application.placementId);
+                  return (
+                    <tr key={application.id}>
+                      <td>{getUserName(application.studentId)}</td>
+                      <td>{placement?.companyName ?? "Company"}</td>
+                      <td>{placement?.jobRole ?? "Role"}</td>
+                      <td>{formatShortDate(application.appliedAt)}</td>
+                      <td>{application.status}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function PlacementCreateForm() {
+  return (
+    <form>
+      <h2 className="text-xl font-bold">Create placement notice</h2>
+      <p className="mt-1 text-sm text-muted">Demo form for company, role, eligibility, CTC, and deadline.</p>
+      <div className="mt-5 space-y-4">
+        <label>
+          <span className="app-label">Company</span>
+          <input className="app-input" defaultValue="Campus Partner Technologies" />
+        </label>
+        <label>
+          <span className="app-label">Role</span>
+          <input className="app-input" defaultValue="Frontend Engineer Intern" />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label>
+            <span className="app-label">CTC</span>
+            <input className="app-input" defaultValue="7.5 LPA" />
+          </label>
+          <label>
+            <span className="app-label">Deadline</span>
+            <input className="app-input" type="date" defaultValue="2026-09-15" />
+          </label>
+        </div>
+        <label>
+          <span className="app-label">Eligibility</span>
+          <textarea className="app-input min-h-28 py-3" defaultValue="CSE/ECE students with portfolio projects and no active backlogs." />
+        </label>
+      </div>
+      <button className="app-button-primary mt-5 w-full" type="button">
+        Publish placement
+      </button>
+    </form>
+  );
+}
+
+function StudentApplicationPanel({ applications }: { applications: typeof placementApplications }) {
+  return (
+    <div>
+      <h2 className="text-xl font-bold">My applications</h2>
+      <p className="mt-1 text-sm text-muted">Track placement applications and current review status.</p>
+      <div className="mt-5 space-y-3">
+        {applications.length ? (
+          applications.map((application) => {
+            const placement = placements.find((item) => item.id === application.placementId);
+            return (
+              <div key={application.id} className="rounded-app border border-line bg-slate-50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-bold text-ink">{placement?.companyName ?? "Company"}</p>
+                  <span className="app-badge app-badge-info">{application.status}</span>
+                </div>
+                <p className="mt-2 text-sm text-muted">{placement?.jobRole ?? "Role"} - applied {formatShortDate(application.appliedAt)}</p>
+              </div>
+            );
+          })
+        ) : (
+          <div className="app-empty-state">No placement applications yet.</div>
+        )}
+      </div>
+      <button className="app-button-primary mt-5 w-full">Apply to selected notice</button>
+    </div>
+  );
 }
 
 function EventModule({ user }: { user: User }) {
