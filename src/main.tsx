@@ -17,6 +17,7 @@ import {
 import {
   announcements,
   assignments,
+  assignmentSubmissions,
   attendanceRecords,
   attendanceSessions,
   campusSummary,
@@ -175,12 +176,160 @@ function App() {
 
             {currentUser.role === "student" && activeView === "dashboard" ? (
               <StudentDashboard user={currentUser} />
+            ) : currentUser.role === "faculty" && activeView === "dashboard" ? (
+              <FacultyDashboard user={currentUser} />
             ) : (
               <FoundationSummary />
             )}
           </section>
         </main>
       </div>
+    </div>
+  );
+}
+
+function FacultyDashboard({ user }: { user: User }) {
+  const assignedCourses = courses.filter((course) => course.facultyId === user.id);
+  const facultyAssignments = assignments.filter((assignment) => assignment.facultyId === user.id);
+  const facultySessions = attendanceSessions.filter((session) => session.facultyId === user.id);
+  const reviewQueue = assignmentSubmissions.filter((submission) => submission.status === "submitted");
+  const openSessions = facultySessions.filter((session) => session.status === "open");
+  const totalStudents = users.filter((candidate) => candidate.role === "student").length;
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Assigned classes" value={String(assignedCourses.length)} badge="Courses" badgeClass="app-badge-info" />
+        <StatCard label="Students tracked" value={String(totalStudents)} badge="Roster" badgeClass="app-badge-success" />
+        <StatCard label="Pending reviews" value={String(reviewQueue.length)} badge="Submissions" badgeClass="app-badge-warning" />
+        <StatCard label="Open attendance" value={String(openSessions.length)} badge="Sessions" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Attendance actions</h2>
+              <p className="mt-1 text-sm text-muted">Open and recent sessions for assigned courses.</p>
+            </div>
+            <button className="app-button-primary">Create session</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Session</th>
+                  <th>Course</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {facultySessions.map((session) => (
+                  <tr key={session.id}>
+                    <td>{session.title}</td>
+                    <td>{getCourseName(session.courseId)}</td>
+                    <td>{formatShortDate(session.sessionDate)}</td>
+                    <td>{session.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Recent submissions</h2>
+              <p className="mt-1 text-sm text-muted">Student work waiting for review or already graded.</p>
+            </div>
+            <button className="app-button-secondary">Review all</button>
+          </div>
+          <div className="space-y-3">
+            {assignmentSubmissions.map((submission) => (
+              <div key={submission.id} className="rounded-app border border-line bg-slate-50 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <p className="text-sm font-bold text-ink">{getAssignmentTitle(submission.assignmentId)}</p>
+                  <span className={`app-badge ${submission.status === "reviewed" ? "app-badge-success" : "app-badge-warning"}`}>
+                    {submission.status}
+                  </span>
+                </div>
+                <p className="mt-2 text-sm text-muted">
+                  {getUserName(submission.studentId)} - {submission.submissionType.replace("_", " ")}
+                </p>
+              </div>
+            ))}
+          </div>
+        </section>
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-3">
+        {assignedCourses.map((course) => {
+          const courseAssignments = facultyAssignments.filter((assignment) => assignment.courseId === course.id);
+          const courseSessions = facultySessions.filter((session) => session.courseId === course.id);
+          const courseAttendanceRecords = attendanceRecords.filter((record) =>
+            courseSessions.some((session) => session.id === record.sessionId)
+          );
+          const presentCount = courseAttendanceRecords.filter((record) =>
+            ["present", "late", "excused"].includes(record.status)
+          ).length;
+          const attendanceRate = courseAttendanceRecords.length
+            ? Math.round((presentCount / courseAttendanceRecords.length) * 100)
+            : 0;
+
+          return (
+            <article className="app-panel" key={course.id}>
+              <span className="app-badge app-badge-info">{course.code}</span>
+              <h3 className="mt-4 text-lg font-bold">{course.name}</h3>
+              <p className="mt-2 text-sm leading-6 text-muted">
+                Semester {course.semester} - {course.credits} credits
+              </p>
+              <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-app bg-slate-50 p-3">
+                  <dt className="font-semibold text-muted">Assignments</dt>
+                  <dd className="mt-1 text-xl font-bold text-ink">{courseAssignments.length}</dd>
+                </div>
+                <div className="rounded-app bg-slate-50 p-3">
+                  <dt className="font-semibold text-muted">Attendance</dt>
+                  <dd className="mt-1 text-xl font-bold text-ink">{attendanceRate}%</dd>
+                </div>
+              </dl>
+            </article>
+          );
+        })}
+      </div>
+
+      <section className="app-panel">
+        <div className="app-panel-header">
+          <h2 className="text-xl font-bold">Assignment queue</h2>
+          <button className="app-button-primary">Create assignment</button>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="app-table">
+            <thead>
+              <tr>
+                <th>Assignment</th>
+                <th>Course</th>
+                <th>Deadline</th>
+                <th>Marks</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {facultyAssignments.map((assignment) => (
+                <tr key={assignment.id}>
+                  <td>{assignment.title}</td>
+                  <td>{getCourseName(assignment.courseId)}</td>
+                  <td>{formatShortDate(assignment.deadline)}</td>
+                  <td>{assignment.maxMarks}</td>
+                  <td>{assignment.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
     </div>
   );
 }
@@ -493,6 +642,14 @@ function getViewTitle(view: View) {
 
 function getCourseName(courseId: string) {
   return courses.find((course) => course.id === courseId)?.name ?? "Course";
+}
+
+function getAssignmentTitle(assignmentId: string) {
+  return assignments.find((assignment) => assignment.id === assignmentId)?.title ?? "Assignment";
+}
+
+function getUserName(userId: string) {
+  return users.find((user) => user.id === userId)?.name ?? "User";
 }
 
 function getSessionTitle(sessionId: string) {
