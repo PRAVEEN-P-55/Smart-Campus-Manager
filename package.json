@@ -1,0 +1,17 @@
+{
+  "name": "smart-campus-manager-monorepo",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "frontend:dev": "npm --prefix frontend run dev",
+    "frontend:build": "npm --prefix frontend run build",
+    "backend:dev": "npm --prefix backend run dev",
+    "backend:build": "npm --prefix backend run build",
+    "backend:start": "npm --prefix backend run start",
+    "db:generate": "npm --prefix backend run prisma:generate",
+    "db:migrate": "npm --prefix backend run prisma:migrate",
+    "db:deploy": "npm --prefix backend run prisma:deploy",
+    "db:seed": "npm --prefix backend run seed",
+    "build": "npm run backend:build && npm run frontend:build"
+  }
+}

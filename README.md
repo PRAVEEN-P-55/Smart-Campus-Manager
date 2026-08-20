@@ -37,7 +37,10 @@ Smart Campus Manager is a role-based campus management platform for PS-1: Smart 
 
 ## Local Setup
 
+Frontend:
+
 ```bash
+cd frontend
 npm install
 npm run dev
 ```
@@ -48,16 +51,28 @@ Open:
 http://localhost:5173
 ```
 
-Production build:
+Backend:
+
+```bash
+cd backend
+npm install
+copy .env.example .env
+npm run prisma:migrate
+npm run seed
+npm run dev
+```
+
+Production builds:
+
+```bash
+npm --prefix backend run build
+npm --prefix frontend run build
+```
+
+Root helper:
 
 ```bash
 npm run build
-```
-
-Preview build:
-
-```bash
-npm run preview
 ```
 
 ## Environment Variables
@@ -86,6 +101,7 @@ APP_URL=http://localhost:5173
 
 - API reference: `docs/api-reference.md`
 - Architecture and ER diagram source: `docs/architecture.md`
+- Deployment guide: `docs/deployment.md`
 - Demo credentials: `docs/demo-credentials.md`
 - Product requirements: `ps1_prd.md`
 - Database schema: `ps1_database_schema.md`
@@ -115,17 +131,18 @@ APP_URL=http://localhost:5173
 ├── docs/
 │   ├── api-reference.md
 │   ├── architecture.md
+│   ├── deployment.md
 │   └── demo-credentials.md
-├── src/
-│   ├── data/
-│   │   └── campusData.ts
-│   ├── main.tsx
-│   └── styles.css
-├── .env.example
-├── package.json
-├── tailwind.config.js
-├── tsconfig.json
-└── vite.config.ts
+├── backend/
+│   ├── prisma/
+│   ├── src/
+│   └── package.json
+├── database/
+│   └── README.md
+├── frontend/
+│   ├── src/
+│   └── package.json
+└── package.json
 ```
 
 ## Repository
