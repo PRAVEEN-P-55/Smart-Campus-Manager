@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
 import {
   Activity,
@@ -53,6 +53,7 @@ import {
   type User,
   users,
 } from "./data/campusData";
+import { apiBaseUrl, fetchApiHealth, loginWithBackend } from "./lib/api";
 import "./styles.css";
 
 type View =
@@ -87,6 +88,8 @@ function App() {
   const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [activeView, setActiveView] = useState<View>("dashboard");
   const [searchQuery, setSearchQuery] = useState("");
+  const [apiStatus, setApiStatus] = useState<"checking" | "connected" | "offline">("checking");
+  const [authToken, setAuthToken] = useState<string | null>(null);
   const role = sessionUser?.role ?? "student";
   const currentUser = sessionUser ?? users.find((user) => user.role === role) ?? users[0];
   const availableNavItems = useMemo(
@@ -94,19 +97,35 @@ function App() {
     [role]
   );
 
-  function handleLogin(nextRole: Role) {
+  useEffect(() => {
+    fetchApiHealth()
+      .then(() => setApiStatus("connected"))
+      .catch(() => setApiStatus("offline"));
+  }, []);
+
+  async function handleLogin(nextRole: Role) {
+    const credentials = demoCredentials[nextRole];
     const demoUser = users.find((user) => user.role === nextRole) ?? users[0];
+    try {
+      const result = await loginWithBackend(credentials.email, credentials.password);
+      setAuthToken(result.data.token);
+      setApiStatus("connected");
+    } catch {
+      setAuthToken(null);
+      setApiStatus("offline");
+    }
     setSessionUser(demoUser);
     setActiveView("dashboard");
   }
 
   function handleLogout() {
     setSessionUser(null);
+    setAuthToken(null);
     setActiveView("dashboard");
   }
 
   if (!sessionUser) {
-    return <LoginScreen onLogin={handleLogin} />;
+    return <LoginScreen apiStatus={apiStatus} onLogin={handleLogin} />;
   }
 
   return (
@@ -159,13 +178,18 @@ function App() {
             <button className="app-icon-button" aria-label="Open notifications">
               <Bell className="h-5 w-5" />
             </button>
+            <span className={`app-badge ${apiStatus === "connected" ? "app-badge-success" : "app-badge-warning"}`}>
+              API {apiStatus}
+            </span>
             <div className="flex min-h-11 items-center gap-3 rounded-app border border-line bg-white px-3">
               <span className="grid h-8 w-8 place-items-center rounded-full bg-brand-100 text-xs font-bold text-brand-700">
                 {currentUser.avatarInitials}
               </span>
               <div className="hidden sm:block">
                 <p className="text-sm font-bold leading-4">{currentUser.name}</p>
-                <p className="text-xs capitalize text-muted">{currentUser.role}</p>
+                <p className="text-xs capitalize text-muted">
+                  {currentUser.role} {authToken ? "- backend auth" : "- demo auth"}
+                </p>
               </div>
             </div>
             <button className="app-icon-button" aria-label="Log out" onClick={handleLogout}>
@@ -1899,8 +1923,15 @@ function StudentListPanel({ title, rows, emptyText }: { title: string; rows: str
   );
 }
 
-function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
+function LoginScreen({
+  apiStatus,
+  onLogin,
+}: {
+  apiStatus: "checking" | "connected" | "offline";
+  onLogin: (role: Role) => Promise<void>;
+}) {
   const [selectedRole, setSelectedRole] = useState<Role>("admin");
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const credentials = demoCredentials[selectedRole];
 
   return (
@@ -1913,7 +1944,10 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
             <h1 className="app-title text-balance">Sign in to Smart Campus Manager</h1>
             <p className="app-copy">
               Use a seeded account to preview role-based dashboards, protected
-              navigation, and campus workflows without connecting a backend yet.
+              navigation, and campus workflows with backend login when the API is running.
+            </p>
+            <p className="mt-4 text-sm font-semibold text-muted">
+              API: {apiStatus} at {apiBaseUrl}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
@@ -1938,7 +1972,8 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
           className="app-panel"
           onSubmit={(event) => {
             event.preventDefault();
-            onLogin(selectedRole);
+            setIsSubmitting(true);
+            onLogin(selectedRole).finally(() => setIsSubmitting(false));
           }}
         >
           <p className="app-eyebrow">Test credentials</p>
@@ -1953,13 +1988,12 @@ function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
               <input className="app-input" value={credentials.password} readOnly type="text" />
             </label>
           </div>
-          <button className="app-button-primary mt-6 w-full" type="submit">
-            Enter dashboard
+          <button className="app-button-primary mt-6 w-full" type="submit" disabled={isSubmitting}>
+            {isSubmitting ? "Signing in..." : "Enter dashboard"}
           </button>
           <p className="mt-4 rounded-app bg-slate-50 p-3 text-sm leading-6 text-muted">
-            Authentication is simulated in local state for the demo. Real password
-            hashing, sessions, OAuth, and protected API checks are planned for backend
-            integration.
+            Passwords are verified by the backend when available. If the API is offline,
+            the frontend falls back to seeded demo mode so judging can continue.
           </p>
         </form>
       </section>
