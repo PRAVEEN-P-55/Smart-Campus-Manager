@@ -203,6 +203,10 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
     return <PlacementModule user={user} />;
   }
 
+  if (view === "announcements") {
+    return <AnnouncementsModule user={user} />;
+  }
+
   if (view === "dashboard" && user.role === "student") {
     return <StudentDashboard user={user} />;
   }
@@ -220,6 +224,172 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
   }
 
   return <FoundationSummary />;
+}
+
+function AnnouncementsModule({ user }: { user: User }) {
+  const canPublish = user.role === "faculty" || user.role === "coordinator" || user.role === "admin";
+  const visibleAnnouncements = announcements.filter((announcement) => {
+    if (announcement.audience === "all") {
+      return true;
+    }
+    if (announcement.audience === "students") {
+      return user.role === "student";
+    }
+    if (announcement.audience === "faculty") {
+      return user.role === "faculty";
+    }
+    if (announcement.audience === "coordinators") {
+      return user.role === "coordinator";
+    }
+    return true;
+  });
+  const userNotifications = notifications.filter((notification) => notification.userId === user.id);
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Visible announcements" value={String(visibleAnnouncements.length)} badge="Targeted" badgeClass="app-badge-info" />
+        <StatCard label="Urgent notices" value={String(visibleAnnouncements.filter((item) => item.priority === "urgent").length)} badge="Priority" badgeClass="app-badge-danger" />
+        <StatCard label="Notifications" value={String(userNotifications.length)} badge="Inbox" badgeClass="app-badge-warning" />
+        <StatCard label="Unread" value={String(userNotifications.filter((item) => !item.read).length)} badge="Action" badgeClass="app-badge-success" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Announcements</h2>
+              <p className="mt-1 text-sm text-muted">Role-aware notices for students, faculty, coordinators, departments, or everyone.</p>
+            </div>
+            {canPublish ? <button className="app-button-primary">Publish announcement</button> : <button className="app-button-secondary">Mark read</button>}
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Audience</th>
+                  <th>Priority</th>
+                  <th>Published</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {visibleAnnouncements.map((announcement) => (
+                  <tr key={announcement.id}>
+                    <td>{announcement.title}</td>
+                    <td>{announcement.audience}</td>
+                    <td>{announcement.priority}</td>
+                    <td>{formatShortDate(announcement.publishedAt)}</td>
+                    <td>{announcement.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="app-panel">
+          {canPublish ? <AnnouncementComposer /> : <NotificationCenter notificationsForUser={userNotifications} />}
+        </section>
+      </div>
+
+      {canPublish ? (
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Notification center</h2>
+              <p className="mt-1 text-sm text-muted">System, attendance, event, placement, and assignment alerts.</p>
+            </div>
+            <button className="app-button-secondary">Mark all read</button>
+          </div>
+          <div className="grid gap-3 md:grid-cols-2">
+            {notifications.map((notification) => (
+              <NotificationItem key={notification.id} notification={notification} />
+            ))}
+          </div>
+        </section>
+      ) : null}
+    </div>
+  );
+}
+
+function AnnouncementComposer() {
+  return (
+    <form>
+      <h2 className="text-xl font-bold">Create announcement</h2>
+      <p className="mt-1 text-sm text-muted">Demo composer for targeted notices and priority levels.</p>
+      <div className="mt-5 space-y-4">
+        <label>
+          <span className="app-label">Title</span>
+          <input className="app-input" defaultValue="Internal assessment schedule updated" />
+        </label>
+        <div className="grid gap-4 sm:grid-cols-2">
+          <label>
+            <span className="app-label">Audience</span>
+            <select className="app-input" defaultValue="students">
+              <option value="all">All</option>
+              <option value="students">Students</option>
+              <option value="faculty">Faculty</option>
+              <option value="coordinators">Coordinators</option>
+              <option value="department">Department</option>
+            </select>
+          </label>
+          <label>
+            <span className="app-label">Priority</span>
+            <select className="app-input" defaultValue="high">
+              <option value="low">Low</option>
+              <option value="normal">Normal</option>
+              <option value="high">High</option>
+              <option value="urgent">Urgent</option>
+            </select>
+          </label>
+        </div>
+        <label>
+          <span className="app-label">Message</span>
+          <textarea className="app-input min-h-28 py-3" defaultValue="Students should check their course dashboards for updated assessment slots." />
+        </label>
+      </div>
+      <button className="app-button-primary mt-5 w-full" type="button">
+        Publish notice
+      </button>
+    </form>
+  );
+}
+
+function NotificationCenter({ notificationsForUser }: { notificationsForUser: typeof notifications }) {
+  return (
+    <div>
+      <h2 className="text-xl font-bold">My notifications</h2>
+      <p className="mt-1 text-sm text-muted">Read and unread notifications for the active account.</p>
+      <div className="mt-5 space-y-3">
+        {notificationsForUser.length ? (
+          notificationsForUser.map((notification) => (
+            <NotificationItem key={notification.id} notification={notification} />
+          ))
+        ) : (
+          <div className="app-empty-state">No notifications for this account.</div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function NotificationItem({ notification }: { notification: (typeof notifications)[number] }) {
+  return (
+    <div className="rounded-app border border-line bg-slate-50 p-3">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <p className="text-sm font-bold text-ink">{notification.title}</p>
+          <p className="mt-1 text-xs capitalize text-muted">{notification.type}</p>
+        </div>
+        <span className={`app-badge ${notification.read ? "app-badge-info" : "app-badge-danger"}`}>
+          {notification.read ? "Read" : "Unread"}
+        </span>
+      </div>
+      <p className="mt-2 text-sm leading-6 text-muted">{notification.message}</p>
+    </div>
+  );
 }
 
 function PlacementModule({ user }: { user: User }) {
