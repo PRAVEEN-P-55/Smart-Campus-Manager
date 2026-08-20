@@ -14,7 +14,7 @@ import {
   Settings,
   Users,
 } from "lucide-react";
-import { campusSummary, demoCredentials, roles, type Role, users } from "./data/campusData";
+import { campusSummary, demoCredentials, roles, type Role, type User, users } from "./data/campusData";
 import "./styles.css";
 
 type View =
@@ -44,17 +44,28 @@ const navItems: {
 ];
 
 function App() {
-  const [role, setRole] = useState<Role>("admin");
+  const [sessionUser, setSessionUser] = useState<User | null>(null);
   const [activeView, setActiveView] = useState<View>("dashboard");
-  const currentUser = users.find((user) => user.role === role) ?? users[0];
+  const role = sessionUser?.role ?? "student";
+  const currentUser = sessionUser ?? users.find((user) => user.role === role) ?? users[0];
   const availableNavItems = useMemo(
     () => navItems.filter((item) => item.allowedRoles.includes(role)),
     [role]
   );
 
-  function handleRoleChange(nextRole: Role) {
-    setRole(nextRole);
+  function handleLogin(nextRole: Role) {
+    const demoUser = users.find((user) => user.role === nextRole) ?? users[0];
+    setSessionUser(demoUser);
     setActiveView("dashboard");
+  }
+
+  function handleLogout() {
+    setSessionUser(null);
+    setActiveView("dashboard");
+  }
+
+  if (!sessionUser) {
+    return <LoginScreen onLogin={handleLogin} />;
   }
 
   return (
@@ -91,11 +102,7 @@ function App() {
             </label>
             <label>
               <span className="sr-only">Switch role</span>
-              <select
-                className="app-input w-40 font-bold"
-                value={role}
-                onChange={(event) => handleRoleChange(event.target.value as Role)}
-              >
+              <select className="app-input w-40 font-bold" value={role} onChange={(event) => handleLogin(event.target.value as Role)}>
                 {roles.map((item) => (
                   <option key={item.id} value={item.id}>
                     {item.label}
@@ -115,7 +122,7 @@ function App() {
                 <p className="text-xs capitalize text-muted">{currentUser.role}</p>
               </div>
             </div>
-            <button className="app-icon-button" aria-label="Log out">
+            <button className="app-icon-button" aria-label="Log out" onClick={handleLogout}>
               <LogOut className="h-5 w-5" />
             </button>
           </div>
@@ -167,6 +174,74 @@ function App() {
         </main>
       </div>
     </div>
+  );
+}
+
+function LoginScreen({ onLogin }: { onLogin: (role: Role) => void }) {
+  const [selectedRole, setSelectedRole] = useState<Role>("admin");
+  const credentials = demoCredentials[selectedRole];
+
+  return (
+    <main className="app-page grid place-items-center">
+      <section className="grid w-full max-w-6xl gap-6 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="app-panel flex min-h-[520px] flex-col justify-between">
+          <div>
+            <Brand />
+            <p className="app-eyebrow mt-10">Demo access</p>
+            <h1 className="app-title text-balance">Sign in to Smart Campus Manager</h1>
+            <p className="app-copy">
+              Use a seeded account to preview role-based dashboards, protected
+              navigation, and campus workflows without connecting a backend yet.
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            {roles.map((role) => (
+              <button
+                key={role.id}
+                className={`rounded-app border p-4 text-left transition ${
+                  selectedRole === role.id
+                    ? "border-brand-100 bg-brand-50"
+                    : "border-line bg-white hover:border-brand-100 hover:bg-slate-50"
+                }`}
+                onClick={() => setSelectedRole(role.id)}
+              >
+                <p className="font-bold text-ink">{role.label}</p>
+                <p className="mt-1 text-sm leading-6 text-muted">{role.description}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <form
+          className="app-panel"
+          onSubmit={(event) => {
+            event.preventDefault();
+            onLogin(selectedRole);
+          }}
+        >
+          <p className="app-eyebrow">Test credentials</p>
+          <h2 className="mt-3 text-2xl font-bold">Login as {roles.find((role) => role.id === selectedRole)?.label}</h2>
+          <div className="mt-6 space-y-4">
+            <label>
+              <span className="app-label">Email</span>
+              <input className="app-input" value={credentials.email} readOnly />
+            </label>
+            <label>
+              <span className="app-label">Password</span>
+              <input className="app-input" value={credentials.password} readOnly type="text" />
+            </label>
+          </div>
+          <button className="app-button-primary mt-6 w-full" type="submit">
+            Enter dashboard
+          </button>
+          <p className="mt-4 rounded-app bg-slate-50 p-3 text-sm leading-6 text-muted">
+            Authentication is simulated in local state for the demo. Real password
+            hashing, sessions, OAuth, and protected API checks are planned for backend
+            integration.
+          </p>
+        </form>
+      </section>
+    </main>
   );
 }
 
