@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
+import "./styles.css";
 import {
   Activity,
   Bell,
@@ -54,7 +55,6 @@ import {
   users,
 } from "./data/campusData";
 import { apiBaseUrl, fetchApiHealth, loginWithBackend } from "./lib/api";
-import "./styles.css";
 
 type View =
   | "dashboard"
@@ -210,27 +210,74 @@ function App() {
         </header>
 
         <main className="app-page">
-          <section className="app-container app-panel">
-            <div className="app-panel-header">
-              <div>
-                <p className="app-eyebrow">PS-1 Smart Campus Management Platform</p>
-                <h1 className="app-title text-balance">{getViewTitle(activeView)}</h1>
-                <p className="app-copy">
-                  Role-aware navigation is active for the {currentUser.role} demo account.
-                  Feature screens will be filled in upcoming milestones.
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <button className="app-button-primary">Primary action</button>
-                <button className="app-button-secondary">Secondary</button>
-              </div>
-            </div>
-
+          <div className="app-container space-y-4">
             {searchQuery.trim() ? <SearchResults query={searchQuery} user={currentUser} /> : null}
+            <PageHeader view={activeView} user={currentUser} />
             <WorkspaceContent view={activeView} user={currentUser} />
-          </section>
+          </div>
         </main>
       </div>
+    </div>
+  );
+}
+
+function PageHeader({ view, user }: { view: View; user: User }) {
+  const viewMeta: Record<View, { title: string; description: string }> = {
+    dashboard: {
+      title: `${user.role === "admin" ? "Admin" : user.role === "faculty" ? "Faculty" : user.role === "coordinator" ? "Coordinator" : "Student"} Dashboard`,
+      description:
+        user.role === "student"
+          ? "Your attendance, assignments, events, placements, and notifications."
+          : user.role === "faculty"
+          ? "Class performance, attendance sessions, and assignment review queue."
+          : user.role === "coordinator"
+          ? "Managed events, club approvals, placements, and announcements."
+          : "Campus-wide overview of users, academics, events, and placements.",
+    },
+    attendance: {
+      title: "Attendance",
+      description:
+        user.role === "student"
+          ? "Your subject-wise attendance history and session records."
+          : "Create sessions, mark attendance, and track open sessions.",
+    },
+    assignments: {
+      title: "Assignments",
+      description:
+        user.role === "student"
+          ? "Assigned work, submission history, marks, and feedback."
+          : "Assignment listing, creation form, and submission review panel.",
+    },
+    events: {
+      title: "Events",
+      description:
+        user.role === "student"
+          ? "Browse campus events, register for seats, and view your tickets."
+          : "Create and manage campus events, view registrations, and track capacity.",
+    },
+    placements: {
+      title: "Placements",
+      description:
+        user.role === "student"
+          ? "Open placement notices, application status, and eligibility details."
+          : "Publish placement notices and track student applications.",
+    },
+    announcements: {
+      title: "Announcements & Notifications",
+      description: "Role-targeted notices, system alerts, and notification inbox.",
+    },
+    users: { title: "User Management", description: "Manage accounts, roles, departments, and activation state." },
+    analytics: { title: "Analytics", description: "Campus-wide attendance, assignment, event, and placement trends." },
+    settings: { title: "Settings", description: "Manage your profile, security credentials, and preferences." },
+  };
+
+  const { title, description } = viewMeta[view];
+
+  return (
+    <div className="border-b border-line pb-4">
+      <p className="text-xs font-bold uppercase tracking-widest text-brand-600">PS-1 Smart Campus Management Platform</p>
+      <h1 className="mt-2 text-2xl font-bold text-ink sm:text-3xl">{title}</h1>
+      <p className="mt-1 text-sm leading-6 text-muted">{description}</p>
     </div>
   );
 }
@@ -262,6 +309,10 @@ function WorkspaceContent({ view, user }: { view: View; user: User }) {
 
   if (view === "analytics") {
     return <AnalyticsModule user={user} />;
+  }
+
+  if (view === "settings") {
+    return <SettingsModule user={user} />;
   }
 
   if (view === "dashboard" && user.role === "student") {
@@ -1854,6 +1905,85 @@ function StudentDashboard({ user }: { user: User }) {
           </table>
         </div>
       </section>
+    </div>
+  );
+}
+
+function SettingsModule({ user }: { user: User }) {
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Account" value={user.name} badge="Profile" badgeClass="app-badge-info" />
+        <StatCard label="Role" value={user.role} badge="Access" badgeClass="app-badge-success" />
+        <StatCard label="Status" value={user.status} badge="Account" badgeClass="app-badge-warning" />
+        <StatCard label="Email" value={user.email.split("@")[0]} badge="Contact" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Profile settings</h2>
+              <p className="mt-1 text-sm text-muted">Update your display name, phone, and contact info.</p>
+            </div>
+            <button className="app-button-primary">Save changes</button>
+          </div>
+          <div className="space-y-4">
+            <label>
+              <span className="app-label">Full name</span>
+              <input className="app-input" defaultValue={user.name} />
+            </label>
+            <label>
+              <span className="app-label">Email address</span>
+              <input className="app-input" value={user.email} readOnly />
+            </label>
+            <label>
+              <span className="app-label">Phone</span>
+              <input className="app-input" defaultValue={user.phone} />
+            </label>
+            <label>
+              <span className="app-label">Role</span>
+              <input className="app-input" value={user.role} readOnly />
+            </label>
+          </div>
+        </section>
+
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Security</h2>
+              <p className="mt-1 text-sm text-muted">Change your password or manage sessions.</p>
+            </div>
+          </div>
+          <div className="space-y-4">
+            <label>
+              <span className="app-label">Current password</span>
+              <input className="app-input" type="password" placeholder="Enter current password" />
+            </label>
+            <label>
+              <span className="app-label">New password</span>
+              <input className="app-input" type="password" placeholder="Enter new password" />
+            </label>
+            <label>
+              <span className="app-label">Confirm new password</span>
+              <input className="app-input" type="password" placeholder="Confirm new password" />
+            </label>
+            <button className="app-button-secondary w-full" type="button">Update password</button>
+          </div>
+
+          <div className="mt-6 rounded-app border border-line bg-slate-50 p-4">
+            <p className="text-sm font-bold text-ink">Active session</p>
+            <p className="mt-1 text-xs text-muted">Last login: {user.lastLoginAt ? new Intl.DateTimeFormat("en-IN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(user.lastLoginAt)) : "N/A"}</p>
+          </div>
+
+          <div className="mt-4">
+            <p className="mb-2 text-sm font-bold text-ink">Platform</p>
+            <p className="text-sm leading-6 text-muted">
+              Smart Campus Manager v0.1.0 — PS-1 Smart Campus Management Platform
+            </p>
+          </div>
+        </section>
+      </div>
     </div>
   );
 }

@@ -153,19 +153,23 @@ Smart-Campus-Manager/
 │   └── dev.db                 SQLite database (seeded)
 ├── frontend/
 │   ├── src/
-│   │   ├── main.tsx           Full React application
+│   │   ├── main.tsx           Full React application (~2100 lines)
 │   │   ├── styles.css         Design system (Tailwind components + tokens)
 │   │   ├── data/
 │   │   │   └── campusData.ts  Typed seeded demo data
 │   │   └── lib/
 │   │       └── api.ts         Backend API client
 │   └── vite.config.mjs
+├── ps1_prd.md                 Product Requirements Document
+├── ps1_database_schema.md     Database schema reference
+├── ps1_system_architecture_and_apis.md  Architecture and API docs
+├── MILESTONES.md              20-milestone implementation plan
 └── README.md
 ```
 
 ---
 
-## API Summary
+## API Reference
 
 All routes require `Authorization: Bearer <token>` except `/health` and `/api/auth/login`.
 
@@ -175,31 +179,34 @@ All routes require `Authorization: Bearer <token>` except `/health` and `/api/au
 | POST | `/api/auth/login` | Public | JWT login |
 | GET | `/api/auth/me` | All | Current user |
 | GET | `/api/users` | Admin | All users |
-| PATCH | `/api/users/:id/role` | Admin | Change role |
-| PATCH | `/api/users/:id/status` | Admin | Change status |
-| GET | `/api/attendance/sessions` | Faculty/Admin | Sessions |
+| PATCH | `/api/users/:id/role` | Admin | Change user role |
+| PATCH | `/api/users/:id/status` | Admin | Change user status |
+| GET | `/api/departments` | All | Departments list |
+| GET | `/api/courses` | All | Courses list |
+| GET | `/api/attendance/sessions` | Faculty/Admin | Attendance sessions |
 | POST | `/api/attendance/sessions/:id/records` | Faculty/Admin | Mark attendance |
 | GET | `/api/attendance/me` | Student | My attendance |
 | GET | `/api/assignments` | All | Assignments |
 | POST | `/api/assignments` | Faculty/Admin | Create assignment |
-| POST | `/api/assignments/:id/submissions` | Student | Submit |
-| PATCH | `/api/submissions/:id/review` | Faculty/Admin | Grade |
+| POST | `/api/assignments/:id/submissions` | Student | Submit assignment |
+| PATCH | `/api/submissions/:id/review` | Faculty/Admin | Grade submission |
 | GET | `/api/events` | All | Events |
 | POST | `/api/events` | Coordinator/Admin | Create event |
-| POST | `/api/events/:id/register` | Student | Register |
-| POST | `/api/events/:id/cancel` | Student | Cancel |
-| GET | `/api/placements` | All | Placements |
-| POST | `/api/placements` | Coordinator/Admin | Create |
-| POST | `/api/placements/:id/apply` | Student | Apply |
-| GET | `/api/announcements` | All | Announcements |
-| POST | `/api/announcements` | Faculty/Coord/Admin | Publish |
+| POST | `/api/events/:id/register` | Student | Register for event |
+| POST | `/api/events/:id/cancel` | Student | Cancel registration |
+| GET | `/api/placements` | All | Placement notices |
+| POST | `/api/placements` | Coordinator/Admin | Create placement |
+| POST | `/api/placements/:id/apply` | Student | Apply to placement |
+| GET | `/api/announcements` | All | Role-filtered announcements |
+| POST | `/api/announcements` | Faculty/Coordinator/Admin | Publish announcement |
 | GET | `/api/notifications` | All | My notifications |
-| PATCH | `/api/notifications/:id/read` | All | Mark read |
-| GET | `/api/analytics/admin` | Admin | Analytics |
-| GET | `/api/search` | All | Search |
+| PATCH | `/api/notifications/:id/read` | All | Mark as read |
+| PATCH | `/api/notifications/read-all` | All | Mark all read |
+| GET | `/api/analytics/admin` | Admin | Campus analytics |
+| GET | `/api/search` | All | Role-aware search |
 | GET | `/api/activity-logs` | Admin | Audit log |
 
-Full docs: [`docs/api-reference.md`](docs/api-reference.md)
+Full docs: `docs/api-reference.md`
 
 ---
 
@@ -207,28 +214,28 @@ Full docs: [`docs/api-reference.md`](docs/api-reference.md)
 
 Recommended 3–5 minute walkthrough:
 
-1. **Admin** — Open app, log in as admin. Show dashboard metrics, user management table, audit log, and analytics charts.
-2. **Coordinator** — Switch role, show event coordination, club approvals, placement notices.
-3. **Faculty** — Switch role, show class attendance marking, assignment creation form, and submission review.
-4. **Student** — Switch role, show dashboard priorities, attendance history, assignment submission, event registration, placement application, and notification inbox.
-5. **Search** — Type a keyword in the search bar to show role-filtered results.
-6. **Settings** — Show profile and security forms for the current account.
+1. **Landing** — Open the app, select **Admin** and enter the dashboard.
+2. **Admin** — Show admin dashboard metrics, user management table, audit log, and analytics charts.
+3. **Coordinator** — Switch role, show event coordination, club approvals, placement notices.
+4. **Faculty** — Switch role, show class attendance marking, assignment creation form, and submission review.
+5. **Student** — Switch role, show dashboard priorities, attendance history, assignment submission, event registration, placement application, and notification inbox.
+6. **Search** — Type a keyword in the search bar to show role-filtered results.
 
 ---
 
 ## Known Limitations
 
 - File upload (PDF/ZIP) shows a URL input only — no file storage integration yet (Cloudinary/S3 planned).
-- Google OAuth is planned but not implemented in this MVP.
+- Google OAuth is planned but not implemented.
 - Email verification and password reset are planned.
-- Forms in the demo frontend do not persist to the database — they demonstrate workflow UI. When the backend is running, REST API calls do persist changes.
-- The frontend gracefully falls back to seeded demo data when the backend is offline.
+- Forms in demo mode do not persist to the database — they demonstrate the workflow UI. When the backend is running, the REST API endpoints do persist changes.
+- The frontend falls back to seeded demo data when the backend is offline.
 
 ---
 
 ## Deployment
 
-See [`docs/deployment.md`](docs/deployment.md) for full Vercel + Render setup steps.
+See `docs/deployment.md` for full Vercel + Render setup steps.
 
 Quick reference:
 - **Frontend** → Vercel: set `VITE_API_URL` to your Render backend URL
