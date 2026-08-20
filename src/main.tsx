@@ -178,19 +178,180 @@ function App() {
               </div>
             </div>
 
-            {currentUser.role === "student" && activeView === "dashboard" ? (
-              <StudentDashboard user={currentUser} />
-            ) : currentUser.role === "faculty" && activeView === "dashboard" ? (
-              <FacultyDashboard user={currentUser} />
-            ) : currentUser.role === "coordinator" && activeView === "dashboard" ? (
-              <CoordinatorDashboard user={currentUser} />
-            ) : currentUser.role === "admin" && activeView === "dashboard" ? (
-              <AdminDashboard />
-            ) : (
-              <FoundationSummary />
-            )}
+            <WorkspaceContent view={activeView} user={currentUser} />
           </section>
         </main>
+      </div>
+    </div>
+  );
+}
+
+function WorkspaceContent({ view, user }: { view: View; user: User }) {
+  if (view === "attendance") {
+    return <AttendanceModule user={user} />;
+  }
+
+  if (view === "dashboard" && user.role === "student") {
+    return <StudentDashboard user={user} />;
+  }
+
+  if (view === "dashboard" && user.role === "faculty") {
+    return <FacultyDashboard user={user} />;
+  }
+
+  if (view === "dashboard" && user.role === "coordinator") {
+    return <CoordinatorDashboard user={user} />;
+  }
+
+  if (view === "dashboard" && user.role === "admin") {
+    return <AdminDashboard />;
+  }
+
+  return <FoundationSummary />;
+}
+
+function AttendanceModule({ user }: { user: User }) {
+  if (user.role === "student") {
+    const studentRecords = attendanceRecords.filter((record) => record.studentId === user.id);
+    const positiveRecords = studentRecords.filter((record) =>
+      ["present", "late", "excused"].includes(record.status)
+    );
+    const attendanceRate = studentRecords.length
+      ? Math.round((positiveRecords.length / studentRecords.length) * 100)
+      : 0;
+
+    return (
+      <div className="space-y-6">
+        <div className="app-card-grid">
+          <StatCard label="Overall attendance" value={`${attendanceRate}%`} badge="Current" badgeClass="app-badge-info" />
+          <StatCard label="Present count" value={String(positiveRecords.length)} badge="Marked" badgeClass="app-badge-success" />
+          <StatCard label="Total sessions" value={String(studentRecords.length)} badge="History" badgeClass="app-badge-warning" />
+          <StatCard label="Action needed" value={String(studentRecords.filter((record) => record.status === "absent").length)} badge="Absences" badgeClass="app-badge-danger" />
+        </div>
+
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">My attendance history</h2>
+              <p className="mt-1 text-sm text-muted">Subject-wise attendance records visible only to the student.</p>
+            </div>
+            <button className="app-button-secondary">Download report</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Course</th>
+                  <th>Session</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                  <th>Marked at</th>
+                </tr>
+              </thead>
+              <tbody>
+                {studentRecords.map((record) => {
+                  const session = attendanceSessions.find((item) => item.id === record.sessionId);
+                  return (
+                    <tr key={record.id}>
+                      <td>{session ? getCourseName(session.courseId) : "Course"}</td>
+                      <td>{session?.title ?? "Session"}</td>
+                      <td>{session ? formatShortDate(session.sessionDate) : "N/A"}</td>
+                      <td>{record.status}</td>
+                      <td>{formatShortDate(record.markedAt)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const manageableSessions =
+    user.role === "faculty"
+      ? attendanceSessions.filter((session) => session.facultyId === user.id)
+      : attendanceSessions;
+  const studentUsers = users.filter((candidate) => candidate.role === "student");
+  const selectedSession = manageableSessions[0];
+
+  return (
+    <div className="space-y-6">
+      <div className="app-card-grid">
+        <StatCard label="Sessions" value={String(manageableSessions.length)} badge="Total" badgeClass="app-badge-info" />
+        <StatCard label="Open sessions" value={String(manageableSessions.filter((session) => session.status === "open").length)} badge="Marking" badgeClass="app-badge-warning" />
+        <StatCard label="Closed sessions" value={String(manageableSessions.filter((session) => session.status === "closed").length)} badge="Locked" badgeClass="app-badge-success" />
+        <StatCard label="Students" value={String(studentUsers.length)} badge="Roster" badgeClass="app-badge-danger" />
+      </div>
+
+      <div className="grid gap-4 xl:grid-cols-[1fr_1fr]">
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Attendance sessions</h2>
+              <p className="mt-1 text-sm text-muted">Faculty and admins can create, inspect, and close sessions.</p>
+            </div>
+            <button className="app-button-primary">Create session</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="app-table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Course</th>
+                  <th>Date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {manageableSessions.map((session) => (
+                  <tr key={session.id}>
+                    <td>{session.title}</td>
+                    <td>{getCourseName(session.courseId)}</td>
+                    <td>{formatShortDate(session.sessionDate)}</td>
+                    <td>{session.status}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section className="app-panel">
+          <div className="app-panel-header">
+            <div>
+              <h2 className="text-xl font-bold">Mark attendance</h2>
+              <p className="mt-1 text-sm text-muted">
+                Demo controls for {selectedSession ? getSessionTitle(selectedSession.id) : "an attendance session"}.
+              </p>
+            </div>
+            <button className="app-button-secondary">Save marks</button>
+          </div>
+          <div className="space-y-3">
+            {studentUsers.map((student, index) => {
+              const status = index === 0 ? "present" : "absent";
+              return (
+                <div key={student.id} className="flex flex-wrap items-center justify-between gap-3 rounded-app border border-line bg-slate-50 p-3">
+                  <div>
+                    <p className="text-sm font-bold text-ink">{student.name}</p>
+                    <p className="text-xs text-muted">{student.email}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    {(["present", "absent", "late", "excused"] as const).map((option) => (
+                      <button
+                        key={option}
+                        className={`app-badge ${option === status ? "app-badge-info" : "bg-white text-muted"}`}
+                      >
+                        {option}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
       </div>
     </div>
   );
