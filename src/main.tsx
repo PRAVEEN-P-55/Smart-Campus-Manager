@@ -4,16 +4,37 @@ import "./styles.css";
 
 function App() {
   return (
-    <main className="min-h-screen bg-slate-50 px-6 py-10 text-slate-950">
-      <section className="mx-auto max-w-5xl rounded-lg border border-slate-200 bg-white p-8 shadow-sm">
-        <p className="text-sm font-semibold uppercase tracking-wide text-blue-700">
-          PS-1 Smart Campus Management Platform
-        </p>
-        <h1 className="mt-3 text-3xl font-bold">Smart Campus Manager</h1>
-        <p className="mt-3 max-w-2xl text-base leading-7 text-slate-600">
-          React, TypeScript, Vite, and Tailwind are scaffolded. Feature work starts in
-          the next milestone.
-        </p>
+    <main className="app-page">
+      <section className="app-container app-panel">
+        <div className="app-panel-header">
+          <div>
+            <p className="app-eyebrow">PS-1 Smart Campus Management Platform</p>
+            <h1 className="app-title text-balance">Smart Campus Manager</h1>
+            <p className="app-copy">
+              The design system foundation is ready for a clean, responsive campus SaaS
+              dashboard.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className="app-button-primary">Primary action</button>
+            <button className="app-button-secondary">Secondary</button>
+          </div>
+        </div>
+
+        <div className="app-card-grid">
+          {[
+            ["Students", "1,284", "app-badge-info"],
+            ["Faculty", "86", "app-badge-success"],
+            ["Events", "14", "app-badge-warning"],
+            ["Alerts", "3", "app-badge-danger"]
+          ].map(([label, value, badgeClass]) => (
+            <article className="app-stat-card" key={label}>
+              <span className={`app-badge ${badgeClass}`}>Foundation</span>
+              <p className="mt-4 text-sm font-semibold text-muted">{label}</p>
+              <p className="mt-1 text-3xl font-bold">{value}</p>
+            </article>
+          ))}
+        </div>
       </section>
     </main>
   );
